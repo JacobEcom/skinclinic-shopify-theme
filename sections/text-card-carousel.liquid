@@ -1,0 +1,911 @@
+{%- liquid
+  assign s = section.settings
+
+  # ---- Card shadow ----------------------------------------------------------
+  assign card_shadow = 'none'
+  if s.shadow_enabled
+    assign shadow_color = s.shadow_color
+    if shadow_color == blank
+      assign shadow_color = '#000000'
+    endif
+    assign shadow_alpha = s.shadow_opacity | divided_by: 100.0
+    assign shadow_rgba = shadow_color | color_modify: 'alpha', shadow_alpha
+    assign card_shadow = s.shadow_x | append: 'px ' | append: s.shadow_y | append: 'px ' | append: s.shadow_blur | append: 'px ' | append: s.shadow_spread | append: 'px ' | append: shadow_rgba
+  endif
+
+  # ---- Hover fill (solid OR gradient) -------------------------------------
+  assign hover_style = s.card_hover_style | default: 'solid'
+  assign hover_fill = ''
+  if hover_style == 'gradient' and s.card_hover_gradient != blank
+    assign hover_fill = s.card_hover_gradient
+  elsif s.card_hover_color != blank
+    assign hover_fill = s.card_hover_color
+  endif
+  assign hover_enabled = false
+  if s.card_hover_enabled and hover_fill != blank
+    assign hover_enabled = true
+  endif
+
+  # ---- Directory colours -------------------------------------------------
+  assign dir_color = s.directory_text_color | default: 'currentColor'
+  assign dir_color_active = s.directory_text_color_selected | default: 'currentColor'
+  assign underline_color = s.directory_underline_color | default: 'currentColor'
+  assign heading_color = s.card_heading_color | default: 'inherit'
+  assign body_color = s.card_body_color | default: 'inherit'
+  assign icon_color = s.icon_color | default: 'currentColor'
+  assign icon_color_hover = s.icon_color_hover | default: icon_color
+
+  # ---- Card text alignment --------------------------------------------------
+  case s.card_text_alignment
+    when 'left'
+      assign card_text_align = 'left'
+      assign card_items_align = 'flex-start'
+    when 'right'
+      assign card_text_align = 'right'
+      assign card_items_align = 'flex-end'
+    else
+      assign card_text_align = 'center'
+      assign card_items_align = 'center'
+  endcase
+
+  # ---- Which tab is selected on load -------------------------------------
+  assign last_index = section.blocks.size | minus: 1
+  case s.initial_tab
+    when 'center'
+      assign initial_index = last_index | divided_by: 2
+    when 'last'
+      assign initial_index = last_index
+    else
+      assign initial_index = 0
+  endcase
+
+  # ---- Font role -> CSS variables ---------------------------------------
+  # Roles map to the fonts configured in Theme settings > Typography,
+  # so "system" fonts chosen there flow straight through.
+  assign font_pairs = 'title=' | append: s.heading_font_role | append: '|dir=' | append: s.directory_font_role | append: '|heading=' | append: s.card_heading_font_role | append: '|body=' | append: s.card_body_font_role
+  assign font_pairs = font_pairs | split: '|'
+-%}
+
+{%- capture font_vars -%}
+  {%- for pair in font_pairs -%}
+    {%- assign kv = pair | split: '=' -%}
+    {%- assign fk = kv[0] -%}
+    {%- assign role = kv[1] -%}
+    {%- if role == 'system' -%}
+      --tcc-{{ fk }}-font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, "Helvetica Neue", Arial, sans-serif;
+      --tcc-{{ fk }}-font-weight: 400;
+      --tcc-{{ fk }}-font-style: normal;
+    {%- else -%}
+      --tcc-{{ fk }}-font-family: var(--font-{{ role }}--family);
+      --tcc-{{ fk }}-font-weight: var(--font-{{ role }}--weight);
+      --tcc-{{ fk }}-font-style: var(--font-{{ role }}--style);
+    {%- endif -%}
+  {%- endfor -%}
+{%- endcapture -%}
+
+{%- style -%}
+  #tcc-{{ section.id }} {
+    {{ font_vars }}
+
+    --tcc-dir-color: {{ dir_color }};
+    --tcc-dir-color-active: {{ dir_color_active }};
+    --tcc-underline: {{ underline_color }};
+    --tcc-dir-gap: {{ s.directory_gap }}px;
+    --tcc-dir-fs: {{ s.directory_font_size }}px;
+    --tcc-dir-weight: {{ s.directory_font_weight }};
+
+    --tcc-card-gap: {{ s.card_gap }}px;
+    --tcc-card-radius: {{ s.card_corners }}px;
+    --tcc-card-pad: {{ s.card_padding }}px;
+    --tcc-icon-size: {{ s.card_icon_size }}px;
+    --tcc-icon-color: {{ icon_color }};
+    --tcc-icon-color-hover: {{ icon_color_hover }};
+    --tcc-heading-color: {{ heading_color }};
+    --tcc-body-color: {{ body_color }};
+    --tcc-card-bg-default: {{ s.card_background_default | default: 'transparent' }};
+    --tcc-card-text: {{ card_text_align }};
+    --tcc-card-items: {{ card_items_align }};
+
+    --tcc-shadow: {{ card_shadow }};
+
+    --tcc-hover-heading: {{ s.card_hover_heading_color | default: 'inherit' }};
+    --tcc-hover-body: {{ s.card_hover_body_color | default: 'inherit' }};
+    --tcc-hover-dur: {{ s.card_hover_duration }}ms;
+
+    --tcc-cols: {{ s.max_columns }};
+  }
+
+  #tcc-{{ section.id }} .tcc__title {
+    font-family: var(--tcc-title-font-family);
+    font-weight: var(--tcc-title-font-weight);
+    font-style: var(--tcc-title-font-style);
+  }
+
+  #tcc-{{ section.id }} .tcc__directory {
+    display: flex;
+    flex-wrap: nowrap;
+    gap: var(--tcc-dir-gap);
+    overflow-x: auto;
+    scrollbar-width: none;
+    margin: 0 0 var(--tcc-card-gap);
+    padding: 0;
+    list-style: none;
+    justify-content: {{ s.directory_alignment }};
+  }
+  #tcc-{{ section.id }} .tcc__directory::-webkit-scrollbar { display: none; }
+
+  #tcc-{{ section.id }} .tcc__tab {
+    position: relative;
+    flex: 0 0 auto;
+    appearance: none;
+    background: none;
+    border: 0;
+    margin: 0;
+    padding: 0 2px 10px;
+    cursor: pointer;
+    font: inherit;
+    font-family: var(--tcc-dir-font-family);
+    font-style: var(--tcc-dir-font-style);
+    font-size: var(--tcc-dir-fs);
+    font-weight: var(--tcc-dir-font-weight);
+    font-weight: var(--tcc-dir-weight);
+    line-height: 1.2;
+    color: var(--tcc-dir-color);
+    white-space: nowrap;
+    transition: color var(--tcc-hover-dur) ease;
+  }
+  #tcc-{{ section.id }} .tcc__tab::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 2px;
+    border-radius: 2px;
+    background: var(--tcc-underline);
+    transform: scaleX(0);
+    transform-origin: center;
+    transition: transform .3s ease;
+  }
+  #tcc-{{ section.id }} .tcc__tab[aria-selected="true"] { color: var(--tcc-dir-color-active); }
+  #tcc-{{ section.id }} .tcc__tab[aria-selected="true"]::after { transform: scaleX(1); }
+  #tcc-{{ section.id }} .tcc__tab:focus-visible {
+    outline: 2px solid var(--tcc-dir-color-active);
+    outline-offset: 4px;
+  }
+
+  #tcc-{{ section.id }} .tcc__panels { display: grid; }
+  #tcc-{{ section.id }} .tcc__panel {
+    grid-area: 1 / 1;
+    opacity: 0;
+    visibility: hidden;
+    transform: translateX(28px);
+    transition: opacity .4s ease, transform .4s ease, visibility .4s;
+    pointer-events: none;
+  }
+  #tcc-{{ section.id }} .tcc__panel.is-active {
+    opacity: 1;
+    visibility: visible;
+    transform: none;
+    pointer-events: auto;
+  }
+
+  #tcc-{{ section.id }} .tcc__grid {
+    display: grid;
+    grid-template-columns: repeat(var(--tcc-panel-cols, var(--tcc-cols)), minmax(0, 1fr));
+    gap: var(--tcc-card-gap);
+  }
+
+  #tcc-{{ section.id }} .tcc__card {
+    position: relative;
+    isolation: isolate;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    align-items: var(--tcc-card-items);
+    gap: 12px;
+    padding: var(--tcc-card-pad);
+    border-radius: var(--tcc-card-radius) !important;
+    background: var(--tcc-card-bg, var(--tcc-card-bg-default));
+    box-shadow: var(--tcc-shadow);
+    text-align: var(--tcc-card-text);
+  }
+  {%- if hover_enabled -%}
+  #tcc-{{ section.id }} .tcc__card::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    border-radius: inherit;
+    background: {{ hover_fill }};
+    transform: translateY(110%);
+    transition: transform var(--tcc-hover-dur) cubic-bezier(.22,.61,.36,1);
+    pointer-events: none;
+    will-change: transform;
+  }
+  #tcc-{{ section.id }} .tcc__card:hover::before,
+  #tcc-{{ section.id }} .tcc__card:focus-within::before { transform: translateY(0); }
+  #tcc-{{ section.id }} .tcc__card:hover .tcc__card-heading,
+  #tcc-{{ section.id }} .tcc__card:focus-within .tcc__card-heading { color: var(--tcc-hover-heading); }
+  #tcc-{{ section.id }} .tcc__card:hover .tcc__card-body,
+  #tcc-{{ section.id }} .tcc__card:focus-within .tcc__card-body { color: var(--tcc-hover-body); }
+  {%- endif -%}
+
+  #tcc-{{ section.id }} .tcc__card > * { position: relative; z-index: 1; }
+  #tcc-{{ section.id }} .tcc__card-icon {
+    width: var(--tcc-icon-size);
+    height: var(--tcc-icon-size);
+    object-fit: contain;
+    display: block;
+    flex: 0 0 auto;
+  }
+  /* Recoloured icon: the image becomes a mask, colour comes from background-color */
+  #tcc-{{ section.id }} .tcc__card-icon--mask {
+    background-color: var(--tcc-icon-color);
+    -webkit-mask: var(--tcc-icon-url) no-repeat center / contain;
+    mask: var(--tcc-icon-url) no-repeat center / contain;
+    transition: background-color var(--tcc-hover-dur) ease;
+  }
+  #tcc-{{ section.id }} .tcc__card:hover .tcc__card-icon--mask,
+  #tcc-{{ section.id }} .tcc__card:focus-within .tcc__card-icon--mask {
+    background-color: var(--tcc-icon-color-hover);
+  }
+  #tcc-{{ section.id }} .tcc__card-heading {
+    margin: 0;
+    color: var(--tcc-heading-color);
+    font-family: var(--tcc-heading-font-family);
+    font-weight: var(--tcc-heading-font-weight);
+    font-style: var(--tcc-heading-font-style);
+    transition: color var(--tcc-hover-dur) ease;
+  }
+  #tcc-{{ section.id }} .tcc__card-body {
+    color: var(--tcc-body-color);
+    font-family: var(--tcc-body-font-family);
+    font-weight: var(--tcc-body-font-weight);
+    font-style: var(--tcc-body-font-style);
+    transition: color var(--tcc-hover-dur) ease;
+  }
+  #tcc-{{ section.id }} .tcc__card-body > :first-child { margin-top: 0; }
+  #tcc-{{ section.id }} .tcc__card-body > :last-child { margin-bottom: 0; }
+
+  @media (max-width: 990px) {
+    #tcc-{{ section.id }} .tcc__grid { --tcc-panel-cols: 2 !important; }
+  }
+  @media (max-width: 640px) {
+    #tcc-{{ section.id }} .tcc__grid { --tcc-panel-cols: 1 !important; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    #tcc-{{ section.id }} .tcc__panel { transition: opacity .001s linear; transform: none; }
+    #tcc-{{ section.id }} .tcc__card::before { transition: none; }
+  }
+{%- endstyle -%}
+
+<div class="section section--{{ s.section_width }} spacing-style" style="{% render 'spacing-style', settings: s %}">
+  <div id="tcc-{{ section.id }}" class="tcc">
+    {%- if s.heading != blank -%}
+      <h2 class="tcc__title">{{ s.heading }}</h2>
+    {%- endif -%}
+
+    {%- if section.blocks.size > 0 -%}
+      <div class="tcc__directory" role="tablist" aria-label="{{ s.heading | default: 'Card categories' | escape }}">
+        {%- for block in section.blocks -%}
+          <button
+            type="button"
+            role="tab"
+            id="tcc-tab-{{ section.id }}-{{ forloop.index }}"
+            class="tcc__tab"
+            aria-controls="tcc-panel-{{ section.id }}-{{ forloop.index }}"
+            aria-selected="{% if forloop.index0 == initial_index %}true{% else %}false{% endif %}"
+            tabindex="{% if forloop.index0 == initial_index %}0{% else %}-1{% endif %}"
+          >
+            {{ block.settings.page_title | default: 'Untitled' }}
+          </button>
+        {%- endfor -%}
+      </div>
+
+      <div class="tcc__panels">
+        {%- for block in section.blocks -%}
+          {%- liquid
+            assign b = block.settings
+            assign enabled_count = 0
+            for i in (1..4)
+              assign key = 'card_' | append: i | append: '_enabled'
+              if b[key]
+                assign enabled_count = enabled_count | plus: 1
+              endif
+            endfor
+            assign panel_cols = enabled_count
+            if panel_cols > s.max_columns
+              assign panel_cols = s.max_columns
+            endif
+            if panel_cols < 1
+              assign panel_cols = 1
+            endif
+          -%}
+          <div
+            id="tcc-panel-{{ section.id }}-{{ forloop.index }}"
+            class="tcc__panel{% if forloop.index0 == initial_index %} is-active{% endif %}"
+            role="tabpanel"
+            aria-labelledby="tcc-tab-{{ section.id }}-{{ forloop.index }}"
+            {{ block.shopify_attributes }}
+          >
+            <div class="tcc__grid" style="--tcc-panel-cols: {{ panel_cols }};">
+              {%- for i in (1..4) -%}
+                {%- liquid
+                  assign en = 'card_' | append: i | append: '_enabled'
+                  assign ic = 'card_' | append: i | append: '_icon'
+                  assign hd = 'card_' | append: i | append: '_heading'
+                  assign bd = 'card_' | append: i | append: '_body'
+                  assign bg = 'card_' | append: i | append: '_background'
+                -%}
+                {%- if b[en] -%}
+                  <div class="tcc__card"{% if b[bg] != blank %} style="--tcc-card-bg: {{ b[bg] }};"{% endif %}>
+                    {%- if b[ic] != blank -%}
+                      {%- if s.icon_recolor -%}
+                        <span
+                          class="tcc__card-icon tcc__card-icon--mask"
+                          style="--tcc-icon-url: url('{{ b[ic] | image_url: width: 360 }}');"
+                          {% if b[ic].alt != blank %}role="img" aria-label="{{ b[ic].alt | escape }}"{% else %}aria-hidden="true"{% endif %}
+                        ></span>
+                      {%- else -%}
+                        <img
+                          class="tcc__card-icon"
+                          src="{{ b[ic] | image_url: width: 240 }}"
+                          srcset="{{ b[ic] | image_url: width: 120 }} 120w, {{ b[ic] | image_url: width: 240 }} 240w, {{ b[ic] | image_url: width: 360 }} 360w"
+                          sizes="{{ s.card_icon_size }}px"
+                          width="{{ b[ic].width }}"
+                          height="{{ b[ic].height }}"
+                          alt="{{ b[ic].alt | escape }}"
+                          loading="lazy"
+                        >
+                      {%- endif -%}
+                    {%- endif -%}
+                    {%- if b[hd] != blank -%}
+                      <h3 class="tcc__card-heading h5">{{ b[hd] }}</h3>
+                    {%- endif -%}
+                    {%- if b[bd] != blank -%}
+                      <div class="tcc__card-body rte">{{ b[bd] }}</div>
+                    {%- endif -%}
+                  </div>
+                {%- endif -%}
+              {%- endfor -%}
+            </div>
+          </div>
+        {%- endfor -%}
+      </div>
+    {%- else -%}
+      <div class="tcc__panels">
+        <p>Add a “Page” block to start building your carousel.</p>
+      </div>
+    {%- endif -%}
+  </div>
+</div>
+
+<script>
+  (function () {
+    var root = document.getElementById('tcc-{{ section.id }}');
+    if (!root || root.dataset.tccInit) return;
+    root.dataset.tccInit = '1';
+
+    var tabs = Array.prototype.slice.call(root.querySelectorAll('.tcc__tab'));
+    var panels = Array.prototype.slice.call(root.querySelectorAll('.tcc__panel'));
+    if (!tabs.length) return;
+
+    function activate(index, focus) {
+      tabs.forEach(function (tab, i) {
+        var selected = i === index;
+        tab.setAttribute('aria-selected', selected ? 'true' : 'false');
+        tab.setAttribute('tabindex', selected ? '0' : '-1');
+        if (selected && focus) tab.focus();
+      });
+      panels.forEach(function (panel, i) {
+        panel.classList.toggle('is-active', i === index);
+      });
+    }
+
+    tabs.forEach(function (tab, i) {
+      tab.addEventListener('click', function () { activate(i, false); });
+      tab.addEventListener('keydown', function (e) {
+        var last = tabs.length - 1;
+        var next = null;
+        if (e.key === 'ArrowRight' || e.key === 'ArrowDown') next = i === last ? 0 : i + 1;
+        else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') next = i === 0 ? last : i - 1;
+        else if (e.key === 'Home') next = 0;
+        else if (e.key === 'End') next = last;
+        if (next !== null) { e.preventDefault(); activate(next, true); }
+      });
+    });
+
+    // Theme editor: jump to the page whose block a merchant selects.
+    document.addEventListener('shopify:block:select', function (e) {
+      var panel = e.target && e.target.closest ? e.target.closest('.tcc__panel') : null;
+      if (panel && root.contains(panel)) {
+        var idx = panels.indexOf(panel);
+        if (idx > -1) activate(idx, false);
+      }
+    });
+  })();
+</script>
+
+{% schema %}
+{
+  "name": "Text card carousel",
+  "tag": "section",
+  "class": "section-text-card-carousel",
+  "disabled_on": {
+    "groups": ["header", "footer"]
+  },
+  "settings": [
+    {
+      "type": "text",
+      "id": "heading",
+      "label": "Section heading",
+      "info": "Optional. Shown above the directory."
+    },
+    {
+      "type": "select",
+      "id": "heading_font_role",
+      "label": "Section heading font",
+      "options": [
+        { "value": "heading", "label": "Theme heading font" },
+        { "value": "subheading", "label": "Theme subheading font" },
+        { "value": "body", "label": "Theme body font" },
+        { "value": "accent", "label": "Theme accent font" },
+        { "value": "system", "label": "System UI (no download)" }
+      ],
+      "default": "heading"
+    },
+    {
+      "type": "select",
+      "id": "section_width",
+      "label": "Section width",
+      "options": [
+        { "value": "page-width", "label": "Page width" },
+        { "value": "full-width", "label": "Full width" }
+      ],
+      "default": "page-width"
+    },
+    {
+      "type": "range",
+      "id": "max_columns",
+      "label": "Max cards per row (desktop)",
+      "min": 2,
+      "max": 4,
+      "step": 1,
+      "default": 4
+    },
+
+    { "type": "header", "content": "Directory (tabs)" },
+    {
+      "type": "select",
+      "id": "initial_tab",
+      "label": "Tab selected on load",
+      "options": [
+        { "value": "first", "label": "First" },
+        { "value": "center", "label": "Center" },
+        { "value": "last", "label": "Last" }
+      ],
+      "default": "center"
+    },
+    {
+      "type": "select",
+      "id": "directory_font_role",
+      "label": "Tab font",
+      "options": [
+        { "value": "heading", "label": "Theme heading font" },
+        { "value": "subheading", "label": "Theme subheading font" },
+        { "value": "body", "label": "Theme body font" },
+        { "value": "accent", "label": "Theme accent font" },
+        { "value": "system", "label": "System UI (no download)" }
+      ],
+      "default": "heading"
+    },
+    {
+      "type": "color",
+      "id": "directory_text_color",
+      "label": "Tab text — not selected",
+      "placeholder": "Theme default"
+    },
+    {
+      "type": "color",
+      "id": "directory_text_color_selected",
+      "label": "Tab text — selected",
+      "placeholder": "Theme default"
+    },
+    {
+      "type": "color",
+      "id": "directory_underline_color",
+      "label": "Selected tab underline",
+      "placeholder": "Theme default"
+    },
+    {
+      "type": "select",
+      "id": "directory_alignment",
+      "label": "Tab alignment",
+      "options": [
+        { "value": "flex-start", "label": "Left" },
+        { "value": "center", "label": "Center" },
+        { "value": "flex-end", "label": "Right" }
+      ],
+      "default": "flex-start"
+    },
+    {
+      "type": "range",
+      "id": "directory_gap",
+      "label": "Space between tabs",
+      "min": 8,
+      "max": 80,
+      "step": 2,
+      "unit": "px",
+      "default": 28
+    },
+    {
+      "type": "range",
+      "id": "directory_font_size",
+      "label": "Tab font size",
+      "min": 12,
+      "max": 32,
+      "step": 1,
+      "unit": "px",
+      "default": 16
+    },
+    {
+      "type": "select",
+      "id": "directory_font_weight",
+      "label": "Tab font weight",
+      "options": [
+        { "value": "400", "label": "Regular" },
+        { "value": "500", "label": "Medium" },
+        { "value": "600", "label": "Semibold" },
+        { "value": "700", "label": "Bold" }
+      ],
+      "default": "600"
+    },
+
+    { "type": "header", "content": "Cards" },
+    {
+      "type": "select",
+      "id": "card_text_alignment",
+      "label": "Card text alignment",
+      "options": [
+        { "value": "left", "label": "Left" },
+        { "value": "center", "label": "Center" },
+        { "value": "right", "label": "Right" }
+      ],
+      "default": "center"
+    },
+    {
+      "type": "select",
+      "id": "card_heading_font_role",
+      "label": "Headline font",
+      "options": [
+        { "value": "heading", "label": "Theme heading font" },
+        { "value": "subheading", "label": "Theme subheading font" },
+        { "value": "body", "label": "Theme body font" },
+        { "value": "accent", "label": "Theme accent font" },
+        { "value": "system", "label": "System UI (no download)" }
+      ],
+      "default": "heading"
+    },
+    {
+      "type": "select",
+      "id": "card_body_font_role",
+      "label": "Body text font",
+      "options": [
+        { "value": "heading", "label": "Theme heading font" },
+        { "value": "subheading", "label": "Theme subheading font" },
+        { "value": "body", "label": "Theme body font" },
+        { "value": "accent", "label": "Theme accent font" },
+        { "value": "system", "label": "System UI (no download)" }
+      ],
+      "default": "body"
+    },
+    {
+      "type": "range",
+      "id": "card_gap",
+      "label": "Gap between cards",
+      "min": 0,
+      "max": 60,
+      "step": 2,
+      "unit": "px",
+      "default": 20
+    },
+    {
+      "type": "range",
+      "id": "card_padding",
+      "label": "Card padding",
+      "min": 0,
+      "max": 60,
+      "step": 2,
+      "unit": "px",
+      "default": 24
+    },
+    {
+      "type": "select",
+      "id": "card_corners",
+      "label": "Card corners",
+      "info": "This theme uses square corners by default — round just these cards here.",
+      "options": [
+        { "value": "0", "label": "Square" },
+        { "value": "4", "label": "Slightly rounded (4px)" },
+        { "value": "8", "label": "Rounded (8px)" },
+        { "value": "12", "label": "More rounded (12px)" },
+        { "value": "16", "label": "Extra rounded (16px)" },
+        { "value": "24", "label": "Large (24px)" },
+        { "value": "32", "label": "Extra large (32px)" }
+      ],
+      "default": "12"
+    },
+    {
+      "type": "range",
+      "id": "card_icon_size",
+      "label": "Icon size",
+      "min": 16,
+      "max": 120,
+      "step": 2,
+      "unit": "px",
+      "default": 48
+    },
+    {
+      "type": "checkbox",
+      "id": "icon_recolor",
+      "label": "Recolour icons",
+      "info": "Tints the icon with the colours below and cross-fades between them on hover. Use single-colour (silhouette) PNG icons. Turn off to show the icon artwork as-is.",
+      "default": true
+    },
+    {
+      "type": "color",
+      "id": "icon_color",
+      "label": "Icon colour",
+      "default": "#1a1a1a",
+      "visible_if": "{{ section.settings.icon_recolor }}"
+    },
+    {
+      "type": "color",
+      "id": "icon_color_hover",
+      "label": "Icon colour on hover",
+      "default": "#ffffff",
+      "visible_if": "{{ section.settings.icon_recolor }}"
+    },
+    {
+      "type": "color",
+      "id": "card_background_default",
+      "label": "Default card background",
+      "info": "Used when a card has no background colour set.",
+      "placeholder": "Transparent"
+    },
+    {
+      "type": "color",
+      "id": "card_heading_color",
+      "label": "Card headline colour",
+      "placeholder": "Theme default"
+    },
+    {
+      "type": "color",
+      "id": "card_body_color",
+      "label": "Card body text colour",
+      "placeholder": "Theme default"
+    },
+
+    { "type": "header", "content": "Card hover effect" },
+    {
+      "type": "checkbox",
+      "id": "card_hover_enabled",
+      "label": "Enable hover fill",
+      "info": "Slides up from the bottom of the card on hover.",
+      "default": true
+    },
+    {
+      "type": "select",
+      "id": "card_hover_style",
+      "label": "Hover fill type",
+      "options": [
+        { "value": "solid", "label": "Solid colour" },
+        { "value": "gradient", "label": "Gradient" }
+      ],
+      "default": "solid",
+      "visible_if": "{{ section.settings.card_hover_enabled }}"
+    },
+    {
+      "type": "color",
+      "id": "card_hover_color",
+      "label": "Hover colour",
+      "default": "#1a1a1a",
+      "visible_if": "{{ section.settings.card_hover_enabled and section.settings.card_hover_style == 'solid' }}"
+    },
+    {
+      "type": "color_background",
+      "id": "card_hover_gradient",
+      "label": "Hover gradient",
+      "default": "linear-gradient(180deg, #3a7bd5 0%, #00d2ff 100%)",
+      "visible_if": "{{ section.settings.card_hover_enabled and section.settings.card_hover_style == 'gradient' }}"
+    },
+    {
+      "type": "color",
+      "id": "card_hover_heading_color",
+      "label": "Headline colour on hover",
+      "placeholder": "No change",
+      "visible_if": "{{ section.settings.card_hover_enabled }}"
+    },
+    {
+      "type": "color",
+      "id": "card_hover_body_color",
+      "label": "Body text colour on hover",
+      "placeholder": "No change",
+      "visible_if": "{{ section.settings.card_hover_enabled }}"
+    },
+    {
+      "type": "range",
+      "id": "card_hover_duration",
+      "label": "Animation duration",
+      "min": 100,
+      "max": 1200,
+      "step": 50,
+      "unit": "ms",
+      "default": 450,
+      "visible_if": "{{ section.settings.card_hover_enabled }}"
+    },
+
+    { "type": "header", "content": "Card shadow" },
+    {
+      "type": "checkbox",
+      "id": "shadow_enabled",
+      "label": "Enable shadow",
+      "default": true
+    },
+    {
+      "type": "color",
+      "id": "shadow_color",
+      "label": "Shadow colour",
+      "default": "#000000",
+      "visible_if": "{{ section.settings.shadow_enabled }}"
+    },
+    {
+      "type": "range",
+      "id": "shadow_opacity",
+      "label": "Shadow opacity",
+      "min": 0,
+      "max": 100,
+      "step": 1,
+      "unit": "%",
+      "default": 12,
+      "visible_if": "{{ section.settings.shadow_enabled }}"
+    },
+    {
+      "type": "range",
+      "id": "shadow_blur",
+      "label": "Shadow blur",
+      "min": 0,
+      "max": 80,
+      "step": 1,
+      "unit": "px",
+      "default": 24,
+      "visible_if": "{{ section.settings.shadow_enabled }}"
+    },
+    {
+      "type": "range",
+      "id": "shadow_spread",
+      "label": "Shadow spread",
+      "min": -20,
+      "max": 40,
+      "step": 1,
+      "unit": "px",
+      "default": 0,
+      "visible_if": "{{ section.settings.shadow_enabled }}"
+    },
+    {
+      "type": "range",
+      "id": "shadow_x",
+      "label": "Shadow offset — horizontal",
+      "min": -40,
+      "max": 40,
+      "step": 1,
+      "unit": "px",
+      "default": 0,
+      "visible_if": "{{ section.settings.shadow_enabled }}"
+    },
+    {
+      "type": "range",
+      "id": "shadow_y",
+      "label": "Shadow offset — vertical",
+      "min": -40,
+      "max": 40,
+      "step": 1,
+      "unit": "px",
+      "default": 12,
+      "visible_if": "{{ section.settings.shadow_enabled }}"
+    },
+
+    { "type": "header", "content": "Section padding" },
+    {
+      "type": "range",
+      "id": "padding-block-start",
+      "label": "Top padding",
+      "min": 0,
+      "max": 120,
+      "step": 4,
+      "unit": "px",
+      "default": 48
+    },
+    {
+      "type": "range",
+      "id": "padding-block-end",
+      "label": "Bottom padding",
+      "min": 0,
+      "max": 120,
+      "step": 4,
+      "unit": "px",
+      "default": 48
+    }
+  ],
+  "blocks": [
+    {
+      "type": "page",
+      "name": "Page",
+      "settings": [
+        {
+          "type": "text",
+          "id": "page_title",
+          "label": "Tab label",
+          "default": "New page"
+        },
+
+        { "type": "header", "content": "Card 1" },
+        { "type": "checkbox", "id": "card_1_enabled", "label": "Show card 1", "default": true },
+        { "type": "image_picker", "id": "card_1_icon", "label": "Icon", "visible_if": "{{ block.settings.card_1_enabled }}" },
+        { "type": "text", "id": "card_1_heading", "label": "Headline", "default": "Headline", "visible_if": "{{ block.settings.card_1_enabled }}" },
+        { "type": "richtext", "id": "card_1_body", "label": "Body text", "default": "<p>Add a short description for this card.</p>", "visible_if": "{{ block.settings.card_1_enabled }}" },
+        { "type": "color", "id": "card_1_background", "label": "Background colour", "placeholder": "Default", "visible_if": "{{ block.settings.card_1_enabled }}" },
+
+        { "type": "header", "content": "Card 2" },
+        { "type": "checkbox", "id": "card_2_enabled", "label": "Show card 2", "default": true },
+        { "type": "image_picker", "id": "card_2_icon", "label": "Icon", "visible_if": "{{ block.settings.card_2_enabled }}" },
+        { "type": "text", "id": "card_2_heading", "label": "Headline", "default": "Headline", "visible_if": "{{ block.settings.card_2_enabled }}" },
+        { "type": "richtext", "id": "card_2_body", "label": "Body text", "default": "<p>Add a short description for this card.</p>", "visible_if": "{{ block.settings.card_2_enabled }}" },
+        { "type": "color", "id": "card_2_background", "label": "Background colour", "placeholder": "Default", "visible_if": "{{ block.settings.card_2_enabled }}" },
+
+        { "type": "header", "content": "Card 3" },
+        { "type": "checkbox", "id": "card_3_enabled", "label": "Show card 3", "default": true },
+        { "type": "image_picker", "id": "card_3_icon", "label": "Icon", "visible_if": "{{ block.settings.card_3_enabled }}" },
+        { "type": "text", "id": "card_3_heading", "label": "Headline", "default": "Headline", "visible_if": "{{ block.settings.card_3_enabled }}" },
+        { "type": "richtext", "id": "card_3_body", "label": "Body text", "default": "<p>Add a short description for this card.</p>", "visible_if": "{{ block.settings.card_3_enabled }}" },
+        { "type": "color", "id": "card_3_background", "label": "Background colour", "placeholder": "Default", "visible_if": "{{ block.settings.card_3_enabled }}" },
+
+        { "type": "header", "content": "Card 4" },
+        { "type": "checkbox", "id": "card_4_enabled", "label": "Show card 4", "default": false },
+        { "type": "image_picker", "id": "card_4_icon", "label": "Icon", "visible_if": "{{ block.settings.card_4_enabled }}" },
+        { "type": "text", "id": "card_4_heading", "label": "Headline", "default": "Headline", "visible_if": "{{ block.settings.card_4_enabled }}" },
+        { "type": "richtext", "id": "card_4_body", "label": "Body text", "default": "<p>Add a short description for this card.</p>", "visible_if": "{{ block.settings.card_4_enabled }}" },
+        { "type": "color", "id": "card_4_background", "label": "Background colour", "placeholder": "Default", "visible_if": "{{ block.settings.card_4_enabled }}" }
+      ]
+    }
+  ],
+  "max_blocks": 12,
+  "presets": [
+    {
+      "name": "Text card carousel",
+      "category": "Storytelling",
+      "blocks": [
+        {
+          "type": "page",
+          "settings": {
+            "page_title": "Concerns",
+            "card_1_heading": "Acne & breakouts",
+            "card_2_heading": "Pigmentation",
+            "card_3_heading": "Fine lines"
+          }
+        },
+        {
+          "type": "page",
+          "settings": {
+            "page_title": "Treatments",
+            "card_1_heading": "Chemical peels",
+            "card_2_heading": "Microneedling",
+            "card_3_heading": "Laser therapy"
+          }
+        }
+      ]
+    }
+  ]
+}
+{% endschema %}

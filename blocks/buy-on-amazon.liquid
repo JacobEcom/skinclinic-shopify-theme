@@ -1,0 +1,183 @@
+{%- liquid
+  assign b = block.settings
+  assign has_color = false
+  if b.button_background != blank or b.button_text != blank or b.button_border != blank
+    assign has_color = true
+  endif
+
+  assign align_style = ''
+  case b.alignment
+    when 'center'
+      assign align_style = 'margin-inline: auto;'
+    when 'right'
+      assign align_style = 'margin-inline-start: auto;'
+  endcase
+  if b.width == '100%'
+    assign align_style = align_style | append: 'width: 100%;'
+  endif
+-%}
+
+{%- if has_color -%}
+  {%- style -%}
+    .button.buy-amazon--{{ block.id }},
+    .button.buy-amazon--{{ block.id }}:hover {
+      {%- if b.button_background != blank -%}
+        --button-background-color: {{ b.button_background }};
+        --button-border-color: {{ b.button_border | default: b.button_background }};
+        --button-focus-outline-color: {{ b.button_background }};
+      {%- elsif b.button_border != blank -%}
+        --button-border-color: {{ b.button_border }};
+      {%- endif -%}
+      {%- if b.button_text != blank -%}
+        --button-color: {{ b.button_text }};
+      {%- endif -%}
+    }
+  {%- endstyle -%}
+{%- endif -%}
+
+<div class="buy-amazon-block" {{ block.shopify_attributes }}>
+  <a
+    class="button buy-amazon--{{ block.id }}"
+    {% if b.link != blank %}href="{{ b.link }}"{% else %}role="link" aria-disabled="true"{% endif %}
+    {% if b.open_in_new_tab %}target="_blank" rel="noopener noreferrer"{% endif %}
+    {% if align_style != blank %}style="{{ align_style }}"{% endif %}
+  >
+    <span class="buy-amazon__inner">
+      {%- if b.logo != blank -%}
+        <img
+          class="buy-amazon__logo"
+          src="{{ b.logo | image_url: width: 200 }}"
+          srcset="{{ b.logo | image_url: width: 100 }} 1x, {{ b.logo | image_url: width: 200 }} 2x"
+          alt=""
+          loading="lazy"
+          width="{{ b.logo.width }}"
+          height="{{ b.logo.height }}"
+          style="--buy-amazon-logo-h: {{ b.logo_height }}px;"
+        >
+      {%- endif -%}
+      <span class="buy-amazon__label">{{ b.label | default: 'Buy on Amazon' }}</span>
+    </span>
+  </a>
+</div>
+
+{% stylesheet %}
+  .buy-amazon-block {
+    width: 100%;
+  }
+
+  .buy-amazon__inner {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5em;
+  }
+
+  .buy-amazon__logo {
+    height: var(--buy-amazon-logo-h, 20px);
+    width: auto;
+    flex: none;
+    object-fit: contain;
+    display: block;
+  }
+{% endstylesheet %}
+
+{% schema %}
+{
+  "name": "Buy on Amazon",
+  "tag": null,
+  "settings": [
+    {
+      "type": "text",
+      "id": "label",
+      "label": "Button text",
+      "default": "Buy on Amazon"
+    },
+    {
+      "type": "url",
+      "id": "link",
+      "label": "Amazon link",
+      "info": "Paste the full product URL from Amazon."
+    },
+    {
+      "type": "checkbox",
+      "id": "open_in_new_tab",
+      "label": "Open in a new tab",
+      "default": true
+    },
+    {
+      "type": "header",
+      "content": "Logo"
+    },
+    {
+      "type": "image_picker",
+      "id": "logo",
+      "label": "Amazon logo (PNG)",
+      "info": "Shown to the left of the button text. Use a PNG with a transparent background."
+    },
+    {
+      "type": "range",
+      "id": "logo_height",
+      "label": "Logo height",
+      "min": 12,
+      "max": 48,
+      "step": 1,
+      "unit": "px",
+      "default": 20
+    },
+    {
+      "type": "header",
+      "content": "Layout"
+    },
+    {
+      "type": "select",
+      "id": "alignment",
+      "label": "Alignment",
+      "options": [
+        { "value": "left", "label": "Left" },
+        { "value": "center", "label": "Center" },
+        { "value": "right", "label": "Right" }
+      ],
+      "default": "left"
+    },
+    {
+      "type": "select",
+      "id": "width",
+      "label": "Button width",
+      "options": [
+        { "value": "fit-content", "label": "Fit content" },
+        { "value": "100%", "label": "Full width" }
+      ],
+      "default": "fit-content"
+    },
+    {
+      "type": "header",
+      "content": "Colours",
+      "info": "Everything else (font, size, radius, padding) follows the theme's button style. Leave blank to use the theme's button colours."
+    },
+    {
+      "type": "color",
+      "id": "button_background",
+      "label": "Background",
+      "alpha": true
+    },
+    {
+      "type": "color",
+      "id": "button_text",
+      "label": "Text",
+      "alpha": true
+    },
+    {
+      "type": "color",
+      "id": "button_border",
+      "label": "Border",
+      "alpha": true
+    }
+  ],
+  "presets": [
+    {
+      "name": "Buy on Amazon",
+      "category": "Product"
+    }
+  ]
+}
+{% endschema %}
